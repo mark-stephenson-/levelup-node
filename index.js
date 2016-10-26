@@ -1,25 +1,11 @@
 'use strict';
 
-// Messenger API integration example
-// We assume you have:
-// * a Wit.ai bot setup (https://wit.ai/docs/quickstart)
-// * a Messenger Platform setup (https://developers.facebook.com/docs/messenger-platform/quickstart)
-// You need to `npm install` the following dependencies: body-parser, express, request.
-//
-// 1. npm install body-parser express request
-// 2. Download and install ngrok from https://ngrok.com/download
-// 3. ./ngrok http 8445
-// 4. WIT_TOKEN=your_access_token FB_APP_SECRET=your_app_secret FB_PAGE_TOKEN=your_page_token node examples/messenger.js
-// 5. Subscribe your page to the Webhooks using verify_token and `https://<your_ngrok_io>/webhook` as callback URL.
-// 6. Talk to your bot on Messenger!
-
 const bodyParser  = require('body-parser');
 const crypto      = require('crypto');
 const express     = require('express');
 const fetch       = require('node-fetch');
 const request     = require('request');
 const config      = require('./config');
-
 
 let Wit = null;
 let log = null;
@@ -116,11 +102,75 @@ const actions = {
     } else {
       console.error('Oops! Couldn\'t find user for session:', sessionId);
       // Giving the wheel back to our bot
-      return Promise.resolve()
+      return Promise.resolve();
     }
   },
-  // You should implement your custom actions here
-  // See https://wit.ai/docs/quickstart
+  // Custom Actions
+  get_activation_state({sessionId, context, entities}) {
+    console.log('Get Activate State');
+    return new Promise(function(resolve, reject) {
+
+      context.schedule_active= true;
+      delete context.schedule_inactive;
+      return resolve(context);
+    });
+  },
+  show_activate({sessionId, context, entities}) {
+    console.log('Show Activate');
+    console.log(context);
+    return new Promise(function(resolve, reject) {
+      const recipientId = sessions[sessionId].fbid;
+
+      if (recipientId) {
+        return fbMessage(recipientId, 'ACTIVATE MESSAGE')
+        .then(() => null)
+        .catch((err) => {
+          console.error(
+            'Oops! An error occurred while forwarding the response to',
+            recipientId,
+            ':',
+            err.stack || err
+          );
+        });
+      } else {
+        console.error('Oops! Couldn\'t find user for session:', sessionId);
+        return Promise.resolve();
+      }
+      return resolve(context);
+    });
+  },
+  show_menu({sessionId, context, entities}) {
+    console.log('Show Menu');
+    console.log(context);
+    return new Promise(function(resolve, reject) {
+      const recipientId = sessions[sessionId].fbid;
+
+      if (recipientId) {
+        return fbMessage(recipientId, 'SHOWING MENU')
+        .then(() => null)
+        .catch((err) => {
+          console.error(
+            'Oops! An error occurred while forwarding the response to',
+            recipientId,
+            ':',
+            err.stack || err
+          );
+        });
+      } else {
+        console.error('Oops! Couldn\'t find user for session:', sessionId);
+        return Promise.resolve();
+      }
+      return resolve(context);
+    });
+  },
+  activate_schedule({sessionId, context, entities}) {
+    return new Promise(function(resolve, reject) {
+      console.log('Activate schedule');
+      context.schedule_active = true;
+      delete context.schedule_inactive;
+      return resolve(context);
+    });
+  }
 };
 
 // Setting up our bot
@@ -152,11 +202,7 @@ app.get('/webhook', (req, res) => {
 
 // Message handler
 app.post('/webhook', (req, res) => {
-  // Parse the Messenger payload
-  // See the Webhook reference
-  // https://developers.facebook.com/docs/messenger-platform/webhook-reference
   const data = req.body;
-
   if (data.object === 'page') {
     data.entry.forEach(entry => {
       entry.messaging.forEach(event => {
@@ -190,7 +236,6 @@ app.post('/webhook', (req, res) => {
               // Our bot did everything it has to do.
               // Now it's waiting for further messages to proceed.
               console.log('Waiting for next user messages');
-
               // Based on the session state, you might want to reset the session.
               // This depends heavily on the business logic of your bot.
               // Example:
@@ -203,7 +248,8 @@ app.post('/webhook', (req, res) => {
             })
             .catch((err) => {
               console.error('Oops! Got an error from Wit: ', err.stack || err);
-            })
+            });
+            console.log(sessions[sessionId].context);
           }
         } else {
           console.log('received event', JSON.stringify(event));
