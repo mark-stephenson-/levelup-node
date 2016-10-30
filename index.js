@@ -6,6 +6,7 @@ const express     = require('express');
 const fetch       = require('node-fetch');
 const request     = require('request');
 const config      = require('./config');
+const LevelUp     = require('./lib/levelup').LevelUp;
 
 let Wit = null;
 let log = null;
@@ -75,6 +76,7 @@ const findOrCreateSession = (fbid) => {
     // No session found for user fbid, let's create a new one
     sessionId = new Date().toISOString();
     sessions[sessionId] = {fbid: fbid, context: {}};
+    LevelUp.init_user(fbid);
   }
   return sessionId;
 };
@@ -109,10 +111,18 @@ const actions = {
   get_activation_state({sessionId, context, entities}) {
     console.log('Get Activate State');
     return new Promise(function(resolve, reject) {
-
-      context.schedule_active= true;
-      delete context.schedule_inactive;
-      return resolve(context);
+      LevelUp.get_activation_state(sessions[sessionId].fbid).then(function(user_schedule){
+          console.log('user_sched-->', user_schedule.schedule_on);
+          if(user_schedule.schedule_on){
+            context.schedule_active= true;
+            delete context.schedule_inactive;
+          }else {
+            delete context.schedule_active;
+            context.schedule_inactive = true;
+          }
+          return resolve(context);
+        }
+      );
     });
   },
   show_activate({sessionId, context, entities}) {
