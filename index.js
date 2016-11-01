@@ -109,10 +109,9 @@ const actions = {
   },
   // Custom Actions
   get_activation_state({sessionId, context, entities}) {
-    console.log('Get Activate State');
     return new Promise(function(resolve, reject) {
-      LevelUp.get_activation_state(sessions[sessionId].fbid).then(function(user_schedule){
-          console.log('user_sched-->', user_schedule.schedule_on);
+      LevelUp.get_activation_state(sessions[sessionId].fbid)
+        .then(function(user_schedule){
           if(user_schedule.schedule_on){
             context.schedule_active= true;
             delete context.schedule_inactive;
@@ -122,12 +121,27 @@ const actions = {
           }
           return resolve(context);
         }
-      );
+        );
+    });
+  },
+  activate_schedule({sessionId, context, entities}) {
+    return new Promise(function(resolve, reject) {
+      LevelUp.set_activation_state(sessions[sessionId].fbid, true)
+        .then(user_schedule => {
+          console.log('user sched:',user_schedule);
+          if(user_schedule.schedule.schedule_on){
+            context.schedule_active= true;
+            delete context.schedule_inactive;
+          }else {
+            delete context.schedule_active;
+            context.schedule_inactive = true;
+          }
+          console.log('context:',context);
+          return resolve(context);
+        });
     });
   },
   show_activate({sessionId, context, entities}) {
-    console.log('Show Activate');
-    console.log(context);
     return new Promise(function(resolve, reject) {
       const recipientId = sessions[sessionId].fbid;
 
@@ -170,14 +184,6 @@ const actions = {
         console.error('Oops! Couldn\'t find user for session:', sessionId);
         return Promise.resolve();
       }
-      return resolve(context);
-    });
-  },
-  activate_schedule({sessionId, context, entities}) {
-    return new Promise(function(resolve, reject) {
-      console.log('Activate schedule');
-      context.schedule_active = true;
-      delete context.schedule_inactive;
       return resolve(context);
     });
   }
