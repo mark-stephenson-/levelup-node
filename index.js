@@ -55,6 +55,45 @@ const fbMessage = (id, text) => {
   });
 };
 
+const setupMenu = () => {
+  const body = JSON.stringify({
+    setting_type : "call_to_actions",
+    thread_state : "existing_thread",
+    call_to_actions:[
+      {
+        type:"postback",
+        title:"About",
+        payload:"About"
+      },
+      {
+        type:"postback",
+        title:"Turn ON",
+        payload:"TurnOn"
+      },
+      {
+        type:"postback",
+        title:"Turn OFF",
+        payload:"TurnOff"
+      }
+    ]
+  });
+
+
+  const qs = 'access_token=' + encodeURIComponent(FB_PAGE_TOKEN);
+  return fetch('https://graph.facebook.com/v2.6/me/thread_settings?' + qs, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body
+  })
+  .then(rsp => rsp.json())
+  .then(json => {
+    if (json.error && json.error.message) {
+      throw new Error(json.error.message);
+    }
+    return json;
+  });
+};
+
 // ----------------------------------------------------------------------------
 // Wit.ai bot specific code
 
@@ -128,7 +167,6 @@ const actions = {
     return new Promise(function(resolve, reject) {
       LevelUp.set_activation_state(sessions[sessionId].fbid, true)
         .then(user_schedule => {
-          console.log('user sched:',user_schedule);
           if(user_schedule.schedule.schedule_on){
             context.schedule_active= true;
             delete context.schedule_inactive;
@@ -136,7 +174,18 @@ const actions = {
             delete context.schedule_active;
             context.schedule_inactive = true;
           }
-          console.log('context:',context);
+          return resolve(context);
+        });
+    });
+  },
+  deactivate_schedule({sessionId, context, entities}) {
+    return new Promise(function(resolve, reject) {
+      LevelUp.set_activation_state(sessions[sessionId].fbid, false)
+        .then(user_schedule => {
+          if(!user_schedule.schedule.schedule_on){
+            delete context.schedule_active;
+            delete context.schedule_inactive;
+          }
           return resolve(context);
         });
     });
@@ -164,8 +213,6 @@ const actions = {
     });
   },
   show_menu({sessionId, context, entities}) {
-    console.log('Show Menu');
-    console.log(context);
     return new Promise(function(resolve, reject) {
       const recipientId = sessions[sessionId].fbid;
 
@@ -265,10 +312,27 @@ app.post('/webhook', (req, res) => {
             .catch((err) => {
               console.error('Oops! Got an error from Wit: ', err.stack || err);
             });
-            console.log(sessions[sessionId].context);
           }
-        } else {
-          console.log('received event', JSON.stringify(event));
+        }else if (event.postback) {
+          const sender = event.sender.id;
+          const sessionId = findOrCreateSession(sender);
+          var text = event.postback.payload;
+          console.log(text);
+          //Send the message to Wit to handle
+          wit.runActions(
+            sessionId, // the user's current session
+            text, // the user's message
+            sessions[sessionId].context // the user's current session state
+          ).then((context) => {
+            console.log('Waiting for next user messages');
+            sessions[sessionId].context = context;
+          })
+          .catch((err) => {
+            console.error('Oops! Got an error from Wit: ', err.stack || err);
+          });
+
+        }else {
+          console.log('received unknown event', JSON.stringify(event));
         }
       });
     });
@@ -305,6 +369,8 @@ function verifyRequestSignature(req, res, buf) {
     }
   }
 }
+
+setupMenu();
 
 app.listen(PORT);
 console.log('Listening on :' + PORT + '...');
