@@ -55,6 +55,42 @@ const fbMessage = (id, text) => {
   });
 };
 
+const fbActivateMessage = (id, desc) => {
+  const body = JSON.stringify({
+    recipient: { id },
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: desc,
+          buttons: [
+            {
+              "type":"postback",
+              "title":"Activate Now",
+              "payload":"TurnOn"
+            }
+          ]
+        }
+      }
+    }
+  });
+
+  const qs = 'access_token=' + encodeURIComponent(FB_PAGE_TOKEN);
+  return fetch('https://graph.facebook.com/me/messages?' + qs, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body,
+  })
+  .then(rsp => rsp.json())
+  .then(json => {
+    if (json.error && json.error.message) {
+      throw new Error(json.error.message);
+    }
+    return json;
+  });
+};
+
 const setupMenu = () => {
   const body = JSON.stringify({
     setting_type : "call_to_actions",
@@ -195,29 +231,7 @@ const actions = {
       const recipientId = sessions[sessionId].fbid;
 
       if (recipientId) {
-        return fbMessage(recipientId, 'ACTIVATE MESSAGE')
-        .then(() => null)
-        .catch((err) => {
-          console.error(
-            'Oops! An error occurred while forwarding the response to',
-            recipientId,
-            ':',
-            err.stack || err
-          );
-        });
-      } else {
-        console.error('Oops! Couldn\'t find user for session:', sessionId);
-        return Promise.resolve();
-      }
-      return resolve(context);
-    });
-  },
-  show_menu({sessionId, context, entities}) {
-    return new Promise(function(resolve, reject) {
-      const recipientId = sessions[sessionId].fbid;
-
-      if (recipientId) {
-        return fbMessage(recipientId, 'SHOWING MENU')
+        return fbActivateMessage(recipientId, 'You can cancel notifications using the menu.  Get started by clicking ACTIVATE below.')
         .then(() => null)
         .catch((err) => {
           console.error(
