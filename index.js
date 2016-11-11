@@ -21,7 +21,7 @@ try {
 
 // Webserver parameter
 const PORT = config.PORT || 8445;
-
+console.log("port", PORT);
 // Wit.ai parameters
 const WIT_TOKEN = config.WIT_TOKEN;
 
